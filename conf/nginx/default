@@ -1,0 +1,61 @@
+limit_req_zone $http_x_forwarded_for zone=one:10m rate=20r/m;
+limit_req_zone $http_x_forwarded_for zone=pass:10m rate=4r/m;
+## Enable this when we move to nginx > 1.3.15
+#limit_req_zone $http_x_forwarded_for zone=two:10m rate=5r/m;
+## MAP TO READ IF TRAFFIC CAME VIA HTTPS
+map $http_x_forwarded_proto $was_https {
+    default 0;
+    http 0;
+    https 1;
+}
+server {
+    listen 80;
+    server_name duckdns.org;
+    if ($was_https = 0) {
+        rewrite ^/(.*) http://www.duckdns.org/$1 permanent;
+    }
+    if ($was_https = 1) {
+        rewrite ^/(.*) https://www.duckdns.org/$1 permanent;
+    }
+}
+server {
+    listen      80 default_server;
+    server_name www.duckdns.org duckdns-1862848723.us-west-2.elb.amazonaws.com DuckDNS-Web-Load-Balancer-765859673.us-west-2.elb.amazonaws.com;
+
+
+	root /apps/www;
+	index index.jsp
+
+	error_page 404 /404.html;
+## Not until we need it see below
+#	error_page 429 /toomanyrequest.html;
+	error_page 500 503 504 /503.html;
+	error_page 502 /holding.html;
+	recursive_error_pages on;
+
+	location ~* \.(?:ico|css|js|gif|jpe?g|png|html|xml)$ {
+		root /apps/www;
+	}
+
+	location / {
+		limit_req zone=one burst=5;
+		proxy_pass http://127.0.0.1:8080;
+	}
+	
+	location /login-persona? {
+	limit_req zone=pass burst=1 nodelay;
+		proxy_pass http://127.0.0.1:8080;
+	}
+	
+## We have to throw 503 until we can set limit_req_status to something like 429 (too many request)
+#	location /update? {
+#		limit_req zone=two burst=1 nodelay;
+#		limit_req_status 429;
+#		proxy_pass http://127.0.0.1:8080;
+#	}
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Host $host;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+	add_header X-Clacks-Overhead "GNU Terry Pratchett";
+}

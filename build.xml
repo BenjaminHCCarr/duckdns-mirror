@@ -1,0 +1,54 @@
+<?xml version="1.0" ?> 
+<project name="Duck Website" default="war">
+	
+	<property name="secret_dir" value="${basedir}/secret"/>
+	<property name="ext_secret_dir" value="../secrets"/>
+
+	<path id="compile.classpath">
+		<fileset dir="WebContent/WEB-INF/lib">
+			<include name="*.jar"/>
+		</fileset>
+		<fileset dir="libs">
+			<include name="*.jar"/>
+		</fileset>
+	</path>
+	
+	<target name="clean">
+		<delete dir="dist" />
+		<delete dir="build" />
+	</target>
+	
+	<target name="copy-secrets" description="Copies secrets in" depends="clean">
+		<copyfile forceoverwrite="true" dest="${secret_dir}/AwsCredentials.properties" src="${ext_secret_dir}/aws/AwsCredentials.properties"/>
+		<copyfile forceoverwrite="true" dest="${secret_dir}/secrets.properties" src="${ext_secret_dir}/jetty/secrets.properties"/>
+		<copyfile forceoverwrite="true" dest="${secret_dir}/environment.properties" src="${ext_secret_dir}/jetty/environment.properties"/>
+	</target>
+	
+	<target name="init" depends="copy-secrets">
+		<mkdir dir="build/classes"/>
+		<mkdir dir="dist" />
+	</target>
+	
+	<target name="compile" depends="init" >
+		<javac destdir="build/classes" debug="true" srcdir="src">
+			<classpath refid="compile.classpath"/>
+		</javac>
+	</target>
+	
+	<target name="war" depends="compile">
+		<war destfile="dist/duckdns.war" webxml="WebContent/WEB-INF/web.xml">
+			<fileset dir="WebContent">
+				<exclude name="**/lib/**"/>
+			</fileset>
+			<classes dir="build/classes"/>
+		</war>
+	</target>
+	
+	<target name="war-complete" depends="compile">
+		<war destfile="dist/duckdns.war" webxml="WebContent/WEB-INF/web.xml">
+			<fileset dir="WebContent"/>
+			<classes dir="build/classes"/>
+		</war>
+	</target>
+	
+</project>
